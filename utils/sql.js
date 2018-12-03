@@ -1,0 +1,254 @@
+const query = require('./query')
+const Tools = require('./tools')
+const mysql = require('mysql')
+const config = require('../config').database
+const pool = mysql.createPool(config)
+const getByPage = function(tb,page,limit){
+  return new Promise((resolve,reject)=>{
+    let start = (page-1)*limit;
+    let command = `select * from ${tb} limit ${start},${limit}`;
+    query(command,function(res){
+      let data = {
+        code:200,
+        message:'获取成功',
+        data:{
+          list:res,
+          pagination:{
+            size:res.length,
+            currentPage:parseInt(page)
+          }
+        }
+      }
+      query(`select count(*) from ${tb}`,function(res){
+        data.data.pagination['total'] = res[0]["count(*)"];
+        data.data.pagination['totalPage'] = parseInt(res[0]["count(*)"]/limit) + ((res[0]["count(*)"]%limit)>0?1:0);
+        resolve(data);
+      },function(err){
+        resolve(data)
+      })
+    },function(err){
+      resolve(err);
+    })
+  })
+}
+const Sql = {
+  queryAll:function(tb,filter){  //获取表的全部记录
+    if (filter && !Tools.isEmptyObject(filter)) { //分页
+      return getByPage(tb,filter.page,filter.limit)
+    }else {  //全部
+      return new Promise((resolve,reject)=>{
+        query(`select * from ${tb}`,function(res){
+          let data = {
+            code:200,
+            message:'获取成功',
+            data:{
+              list:res,
+              size:res.length
+            }
+          }
+          resolve(data);
+        },function(err){
+          resolve(err);
+        })
+      })
+    }
+  },
+  query:function(tb,id){ //根据id获取
+    return new Promise((resolve,reject)=>{
+      query(`select * from ${tb} where id=${id}`,function(res){
+        console.log(res);
+        let data = {
+          code:200,
+          message:res.length==0?'查无数据':'获取成功',
+          data:res.length==0?{}:res[0]
+        }
+        resolve(data);
+      },function(err){
+        resolve(err);
+      })
+    })
+  },
+  insert:function(tb,data){  //插入一条记录
+    return new Promise((resolve,reject)=>{
+      let [keys,values] = [[],[]];
+      for (let key in data) {
+        if (data.hasOwnProperty(key)) {
+          keys.push(key);
+          if (Object.prototype.toString.call(data[key]) == '[object String]') {
+            values.push(`"${data[key]}"`)
+          }else {
+            values.push(data[key])
+          }
+        }
+      }
+      query(`insert into ${tb} (${keys}) values (${values})`,function(res){
+        let id = res.insertId;
+        let data = {
+          code:200,
+          message:'添加成功',
+          data:res
+        }
+        query(`select * from ${tb} where id=${id}`,function(res){
+          data.data = res[0];
+          resolve(data);
+        },function(err){
+          resolve(data);
+        })
+      },function(err){
+        resolve(err);
+      })
+    })
+  },
+  insertRows:function(tb,arr){ //插入多条记录
+    return new Promise((resolve,reject)=>{
+      let [keys,values] = [[],[]];
+      for (let i = 0; i < arr.length; i++) {
+        let [data,value] = [arr[i],[]];
+        for (let key in data) {
+          if (data.hasOwnProperty(key)) {
+            if (i==0) {
+              keys.push(key);
+            }
+            if (Object.prototype.toString.call(data[key]) == '[object String]') {
+              value.push(`"${data[key]}"`)
+            }else {
+              value.push(data[key])
+            }
+          }
+        }
+        values.push(`(${value})`);
+      }
+      query(`insert into ${tb} (${keys}) values ${values}`,function(res){
+        let data = {
+          code:200,
+          message:'添加成功',
+          data:res
+        }
+        let ids = [];
+        for (let i = 0; i < res.affectedRows; i++) {
+          ids.push(res.insertId+i);
+        }
+        query(`select * from ${tb} where id in (${ids})`,function(res){
+          data.data = {
+              list:res,
+              size:res.length
+          };
+          resolve(data);
+        },function(err){
+          resolve(data);
+        })
+      },function(err){
+        resolve(err);
+      })
+    })
+  },
+  update:function(tb,id,data){ //根据id修改单条记录
+    return new Promise((resolve,reject)=>{
+      let [str,index] = ['',0];
+      for (let key in data) {
+        if (data.hasOwnProperty(key)) {
+          if (index!=0) {
+            str += ','
+          }
+          if (Object.prototype.toString.call(data[key]) == '[object String]'){
+            str += `${key}="${data[key]}"`
+          }
+          else {
+            str += `${key}=${data[key]}`
+          }
+          index++;
+        }
+      }
+      query(`update ${tb} set ${str} where id=${id}`,function(res){
+        let data = {
+          code:200,
+          message:'修改成功',
+          data:res
+        }
+        query(`select * from ${tb} where id=${id}`,function(res){
+          data.data = res[0];
+          resolve(data);
+        },function(err){
+          resolve(data);
+        })
+      },function(err){
+        resolve(err);
+      })
+    })
+  },
+  updateRows:function(tb,arr){  //修改多条记录
+    return new Promise((resolve,reject)=>{
+      let [str,ids,len,keys] = ['',[],arr.length,Object.keys(arr[0])];
+      for (let x = 0; x < len; x++) {
+        ids.push(arr[x].id);
+      }
+      for (let i = 0; i < keys.length; i++) {
+        let k = keys[i];
+        if (k!='id') {
+          str += `${k} = case id `;
+          for (let j = 0; j < len; j++) {
+            str += `when ${arr[j].id} then `;
+            if (Object.prototype.toString.call(arr[j][k]) == '[object String]'){
+              str += `"${arr[j][k]}" `
+            }
+            else{
+              str += `${arr[j][k]} `
+            }
+          }
+          str += 'end'
+          if (i<keys.length-1) {
+            str += ','
+          }
+        }
+      }
+      query(`update ${tb} set ${str} where id in (${ids})`,function(res){
+        let data = {
+          code:200,
+          message:'修改成功',
+          data:res
+        }
+        query(`select * from ${tb} where id in (${ids})`,function(res){
+          data.data = {
+              list:res,
+              size:res.length
+          };
+          resolve(data);
+        },function(err){
+          resolve(data);
+        })
+      },function(err){
+        resolve(err);
+      })
+    })
+  },
+  delete:function(tb,id){ //根据id删除单条记录
+    return new Promise((resolve,reject)=>{
+      query(`delete from ${tb} where id=${id}`,function(res){
+        let data = {
+          code:200,
+          message:'删除成功',
+          data:res
+        }
+        resolve(data);
+      },function(err){
+        resolve(err);
+      })
+    })
+  },
+  deleteRows:function(tb,data){ //根据id数组删除多条记录
+    return new Promise((resolve,reject)=>{
+      query(`delete from ${tb} where id in (${data})`,function(res){
+        let data = {
+          code:200,
+          message:'删除成功',
+          data:res
+        }
+        resolve(data);
+      },function(err){
+        resolve(err);
+      })
+    })
+  }
+}
+
+module.exports = Sql;
