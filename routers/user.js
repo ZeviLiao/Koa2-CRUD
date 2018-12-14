@@ -107,13 +107,45 @@ router
    let data = await signIn(ctx.request.body.phone,ctx.request.body.password);
    ctx.body = data;
  })
- .get('/api/users',async(ctx,next)=>{
-   const token = ctx.header.authorization;
-   let data = Token.decrypt(token);
-   console.log(data);
+ .get(`${preUrl}`,async(ctx,next)=>{ //获取用户信息
+   let data = Token.decrypt(ctx.header.authorization);
    if (data.token) {
-     let res = await Sql.query(tbName,data.data);
+     let res = await Sql.query(tbName,data.id);
      ctx.body = res;
+   }else {
+     ctx.body = {
+       code:401,
+       message:'failed',
+       data:data
+     };
+   }
+ })
+ .put(`${preUrl}`,async(ctx,next)=>{ //修改用户信息
+   let data = Token.decrypt(ctx.header.authorization);
+   if (data.token) {
+     let res = await Sql.update(tbName,data.id,ctx.request.body);
+     ctx.body = res;
+   }else {
+     ctx.body = {
+       code:401,
+       message:'failed',
+       data:data
+     };
+   }
+ })
+ .put(`${preUrl}/pwd`,async(ctx,next)=>{ //修改登录密码
+   let data = Token.decrypt(ctx.header.authorization);
+   if (data.token) {
+     let mydata = ctx.request.body;
+     if (codeList[data.phone]==data.code) {
+       let res = await Sql.update(tbName,data.id,{password:mydata.password});
+       ctx.body = res;
+     }else {
+       ctx.body = {
+         code:401,
+         message:'验证码错误'
+       };
+     }
    }else {
      ctx.body = {
        code:401,

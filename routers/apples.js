@@ -38,5 +38,4 @@ const tbName = 'apples';
     let data = await Sql.deleteRows(tbName,ctx.request.body);
     ctx.body = data;
   })
-
 module.exports = router;

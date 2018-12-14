@@ -56,7 +56,6 @@ const Sql = {
   query:function(tb,id){ //根据id获取
     return new Promise((resolve,reject)=>{
       query(`select * from ${tb} where id=${id}`,function(res){
-        console.log(res);
         let data = {
           code:200,
           message:res.length==0?'查无数据':'获取成功',
@@ -247,6 +246,48 @@ const Sql = {
       },function(err){
         resolve(err);
       })
+    })
+  },
+  search:function(tb,data){ //根据条件准确查询
+    let str = ''
+    for (var key in data) {
+      if (data.hasOwnProperty(key)) {
+        str += `${key}=${data[key]}&`;
+      }
+    }
+    str = str.substr(0,str.length-1);
+    return new Promise((resolve,reject)=>{
+      query(`select * from ${tb} where ${str}`,function(res){
+        resolve({
+          code:200,
+          message:'获取成功',
+          data:res
+        });
+      },function(err){
+        resolve(err);
+      });
+    })
+  },
+  searchVague:function(tb,val,fields){//根据条件模糊查询
+    let str = `select * from ${tb} where concat(`;
+    for (let i = 0; i < fields.length; i++) {
+      str += `${fields[i]},`;
+    }
+    str = str.substring(0,str.length-1);
+    str += `) like %${val}%`;
+    if (fields.length==1){
+      str = `select * from ${tb} where ${fields[0]} like '%${val}%'`;
+    }
+    return new Promise((resolve,reject)=>{
+      query(str,function(res){
+        resolve({
+          code:200,
+          message:'获取成功',
+          data:res
+        });
+      },function(err){
+        resolve(err);
+      });
     })
   }
 }
