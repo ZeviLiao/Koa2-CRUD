@@ -1,5 +1,6 @@
 const router = require('koa-router')();
 const Sql = require('../utils/sql');
+const query = require('../utils/query');
 const Token = require('../utils/token');
 const tbName = 'applys';
 const notoken = {
@@ -26,6 +27,7 @@ router
     }
   })
   .get('/api/apply',async(ctx,next)=>{ //用户端获取贷款申请
+    let data = Token.decrypt(ctx.header.authorization);
     let status = ctx.query.status;
     let obj = {userId:data.id};
     if (status) {
@@ -34,13 +36,22 @@ router
         userId:data.id
       }
     }
-    let data = Token.decrypt(ctx.header.authorization);
     if (data.token) {
-      let res = await Sql.search(tbName,obj);
-      let user = await Sql.query('users',data.id);
-      // let loansId =
-      // let loans = await Sql.query('users',data.id);
-      // let platforms = await Sql.query('users',data.id);
+      let res = await Sql.search(tbName,obj,{
+        loansId:{
+          table:'loans',
+          data:{
+            title:'loansType'
+          }
+        },
+        platformId:{
+          table:'platforms',
+          data:{
+            title:'platformName',
+            logo:'platformLogo'
+          }
+        }
+      });
       ctx.body = res;
     }else {
       ctx.body = notoken;

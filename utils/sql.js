@@ -248,16 +248,32 @@ const Sql = {
       })
     })
   },
-  search:function(tb,data){ //根据条件准确查询
-    let str = ''
-    for (var key in data) {
-      if (data.hasOwnProperty(key)) {
-        str += `${key}=${data[key]}&`;
-      }
+  search:function(tb,data,foreign){ //根据条件准确查询
+    let queryStr = '';//查询条件
+    for (let key in data) {
+      queryStr += `${key}=${data[key]}&`;
     }
-    str = str.substr(0,str.length-1);
+    queryStr = queryStr.substr(0,queryStr.length-1);
+    let str = '';
+    if (foreign) {
+      let as='';
+      let join = '';
+      let tables = ` from ${tb} ${tb}`;
+      for (let key1 in foreign) {
+        let table = foreign[key1].table;
+        let data = foreign[key1].data;
+        let key = key1;
+        join += ` join ${table} ${table} on ${tb}.${key}=${table}.id `;
+        for (let key2 in data) {
+          as += `,${table}.${key2} as ${data[key2]}`
+        }
+      }
+      str = `select ${tb}.*`+as+tables+join+'where '+queryStr;
+    }else {
+      str = `select * from ${tb} where ${queryStr}`
+    }
     return new Promise((resolve,reject)=>{
-      query(`select * from ${tb} where ${str}`,function(res){
+      query(str,function(res){
         resolve({
           code:200,
           message:'获取成功',
@@ -293,3 +309,25 @@ const Sql = {
 }
 
 module.exports = Sql;
+//关联外键数据格式
+/*
+foreign:{
+  foreignKey1:{
+    table:'表名',
+    data:{  //要从外键关联表中取出的数据
+      键名1:别名,
+      键名2:别名,
+      ...
+    }
+  },
+  foreignKey2:{
+    table:'表名',
+    data:{
+      键名1:别名,
+      键名2:别名,
+      ...
+    }
+  },
+  ...
+}
+*/
