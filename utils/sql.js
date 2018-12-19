@@ -31,13 +31,39 @@ const getByPage = function(tb,page,limit){
     })
   })
 }
+const getForeignInfo = function(tb,filter,foreign){//主表，筛选条件,外键信息
+  let queryStr = '';//查询条件
+  for (let key in filter) {
+    queryStr += `${tb}.${key}=${filter[key]}&`;
+  }
+  queryStr = queryStr.substr(0,queryStr.length-1);
+  let as = '';
+  let join = '';
+  let tables = ` from ${tb} ${tb}`;
+  for (let key1 in foreign) {
+    let table = foreign[key1].table;
+    let data = foreign[key1].data;
+    let key = key1;
+    join += ` join ${table} ${table} on ${tb}.${key}=${table}.id `;
+    for(let key2 in data){
+      as += `,${table}.${key2} as ${data[key2]}`
+    }
+  }
+  let str = `select ${tb}.*`+as+tables+join+(queryStr==''?'':'where '+queryStr);
+  console.log(str);
+  return str;
+}
 const Sql = {
-  queryAll:function(tb,filter){  //获取表的全部记录
+  queryAll:function(tb,filter,foreign){  //获取表的全部记录
     if (filter && !Tools.isEmptyObject(filter)) { //分页
-      return getByPage(tb,filter.page,filter.limit)
+      return getByPage(tb,filter.page,filter.limit,foreign)
     }else {  //全部
       return new Promise((resolve,reject)=>{
-        query(`select * from ${tb}`,function(res){
+        let str = `select * from ${tb}`;
+        if (foreign) {
+          str = getForeignInfo(tb,filter,foreign);
+        }
+        query(str,function(res){
           let data = {
             code:200,
             message:'获取成功',
@@ -53,7 +79,7 @@ const Sql = {
       })
     }
   },
-  query:function(tb,id){ //根据id获取
+  query:function(tb,id,foreign){ //根据id获取
     return new Promise((resolve,reject)=>{
       query(`select * from ${tb} where id=${id}`,function(res){
         let data = {
@@ -254,21 +280,9 @@ const Sql = {
       queryStr += `${key}=${data[key]}&`;
     }
     queryStr = queryStr.substr(0,queryStr.length-1);
-    let str = '';
+    let str;
     if (foreign) {
-      let as='';
-      let join = '';
-      let tables = ` from ${tb} ${tb}`;
-      for (let key1 in foreign) {
-        let table = foreign[key1].table;
-        let data = foreign[key1].data;
-        let key = key1;
-        join += ` join ${table} ${table} on ${tb}.${key}=${table}.id `;
-        for (let key2 in data) {
-          as += `,${table}.${key2} as ${data[key2]}`
-        }
-      }
-      str = `select ${tb}.*`+as+tables+join+'where '+queryStr;
+      str = getForeignInfo(tb,data,foreign);
     }else {
       str = `select * from ${tb} where ${queryStr}`
     }
@@ -284,7 +298,7 @@ const Sql = {
       });
     })
   },
-  searchVague:function(tb,val,fields){//根据条件模糊查询
+  searchVague:function(tb,val,fields,foreign){//根据条件模糊查询
     let str = `select * from ${tb} where concat(`;
     for (let i = 0; i < fields.length; i++) {
       str += `${fields[i]},`;

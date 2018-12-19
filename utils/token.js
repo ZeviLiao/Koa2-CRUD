@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const Token = {
-  encrypt:function(data,time){ //加密数据，过期时间
+  encrypt:function(data,time){ //data加密数据，time过期时间
     return jwt.sign(data, 'token', {expiresIn:time})
   },
   decrypt:function(token){

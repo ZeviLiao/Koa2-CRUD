@@ -7,20 +7,53 @@ const notoken = {
   code:401,
   message:'invalid token'
 };
+const foreignKey = {
+  loansId:{
+    table:'loans',
+    data:{
+      title:'loansType'
+    }
+  },
+  platformId:{
+    table:'platforms',
+    data:{
+      title:'platformName',
+      logo:'platformLogo'
+    }
+  }
+};
 router
   .get('/api/cms/apply',async(ctx,next)=>{ //获取所有贷款申请记录
     let data = Token.decrypt(ctx.header.authorization);
     if (data.token) {
-      let res = await Sql.search(tbName,{status:ctx.query.status});
+      let status = ctx.query.status;
+      let res = await Sql.search(tbName,status?{status:status}:{},foreignKey);
       ctx.body = res;
     }else {
       ctx.body = notoken;
     }
   })
-  .put('/api/cms/apply/:id',async(ctx,next)=>{ //修改贷款申请
+  .put('/api/cms/apply',async(ctx,next)=>{ //批量修改贷款申请
     let data = Token.decrypt(ctx.header.authorization);
     if (data.token) {
-      let res = await Sql.update(tbName,ctx.params.id,ctx.request.body);
+      let req = ctx.request.body;
+      let operate = req.operate;
+      let obj;
+      switch (operate) {
+        case 'allow':obj={status:1};break;
+        case 'reject':obj={status:2};break;
+        case 'distribute':obj={platformId:req.platformId};break;
+        case 'paid':obj={status:3};break;
+        case 'cancel':obj={status:4};break;
+      }
+      let arr = [];
+      for (let i = 0; i < req.ids.length; i++) {
+        arr.push({
+          id:req.ids[i],
+          ...obj
+        })
+      }
+      let res = await Sql.updateRows(tbName,arr);
       ctx.body = res;
     }else {
       ctx.body = notoken;
@@ -37,21 +70,16 @@ router
       }
     }
     if (data.token) {
-      let res = await Sql.search(tbName,obj,{
-        loansId:{
-          table:'loans',
-          data:{
-            title:'loansType'
-          }
-        },
-        platformId:{
-          table:'platforms',
-          data:{
-            title:'platformName',
-            logo:'platformLogo'
-          }
-        }
-      });
+      let res = await Sql.search(tbName,obj,foreignKey);
+      ctx.body = res;
+    }else {
+      ctx.body = notoken;
+    }
+  })
+  .get('/api/apply/:id',async(ctx,next)=>{ //用户端获取贷款申请
+    let data = Token.decrypt(ctx.header.authorization);
+    if (data.token) {
+      let res = await Sql.search(tbName,{id:parseInt(ctx.params.id)},foreignKey);
       ctx.body = res;
     }else {
       ctx.body = notoken;
@@ -77,6 +105,24 @@ router
     let data = Token.decrypt(ctx.header.authorization);
     if (data.token) {
       let res = await Sql.update(tbName,ctx.params.id,ctx.request.body);
+      ctx.body = res;
+    }else {
+      ctx.body = notoken;
+    }
+  })
+  .get('/api/bills/pay',async(ctx,next)=>{  //获取待还账单
+    let data = Token.decrypt(ctx.header.authorization);
+    if (data.token) {
+      let res = await Sql.search(tbName,{userId:data.id,status:3,clear:0},foreignKey);
+      ctx.body = res;
+    }else {
+      ctx.body = notoken;
+    }
+  })
+  .get('/api/bills/clear',async(ctx,next)=>{  //获取已还账单
+    let data = Token.decrypt(ctx.header.authorization);
+    if (data.token) {
+      let res = await Sql.search(tbName,{userId:data.id,clear:1},foreignKey);
       ctx.body = res;
     }else {
       ctx.body = notoken;
