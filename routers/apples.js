@@ -1,6 +1,6 @@
 const router = require('koa-router')();   //路由
 const Sql = require('../utils/sql');
-const tbName = 'apples';
+const tbName = 'applys';
  router
   .get('/api/apples',async(ctx,next) => {
     let data = await Sql.queryAll(tbName,ctx.request.query);
@@ -35,7 +35,7 @@ const tbName = 'apples';
     ctx.body = data;
   })
   .del('/api/apples',async(ctx,next) => {
-    let data = await Sql.deleteRows(tbName,ctx.request.body);
+    let data = await Sql.deleteRows(tbName,ctx.request.body.ids);
     ctx.body = data;
   })
 module.exports = router;
