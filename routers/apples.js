@@ -11,14 +11,14 @@ const tbName = 'applys';
     ctx.body = data;
   })
 
-  .post('/api/apples',async(ctx,next) => {
-    let data = await Sql.insert(tbName,ctx.request.body);
-    ctx.body = data;
-  })
-  .post('/api/apples/rows',async(ctx,next) => {
-    let data = await Sql.insertRows(tbName,ctx.request.body);
-    ctx.body = data;
-  })
+  // .post('/api/apples',async(ctx,next) => {
+  //   let data = await Sql.insert(tbName,ctx.request.body);
+  //   ctx.body = data;
+  // })
+  // .post('/api/apples/rows',async(ctx,next) => {
+  //   let data = await Sql.insertRows(tbName,ctx.request.body);
+  //   ctx.body = data;
+  // })
 
   .put('/api/apples/:id',async(ctx,next) => {
     let data = await Sql.update(tbName,ctx.params.id,ctx.request.body);
